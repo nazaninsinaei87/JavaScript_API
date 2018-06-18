@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <meta http-equiv="X-UA-Compatible" content="ie=edge">
+        <title>Belly Button Biodiversity</title>
+        <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+        <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css">
+    </head>
+    <body>
+        <div class="container">
+            <div class="row">
+                <div class="col-md-12 jumbotron text-center">
+                    <h1>Belly Button Biodiversity Dashboard</h1>
+                    <p>Use the interactive charts below to explore the dataset</p>
+                </div>
+            </div>
+
+            <div class="row">
+                <div class="col-md-2">
+                    <div class="well">
+                        <h5>SELECT Sample:</h5>
+                        <select id="selDataset" onchange="optionsChanged(this.value)"></select>
+                    </div>
+                    <div class="panel panel-primary">
+                        <div class="panel-heading">
+                            <h3 class="panel-title">Sample MetaData</h3>
+                        </div>
+                        <div id="metadata" class="panel-body"></div>
+                    </div>
+                </div>
+            </div>
+            <div class="row">
+                <div class = "col-md-6">
+                    <div id="pie"></div>
+                </div>
+            </div>
+            <div class="row">
+                <div class="col-md-12">
+                    <div id="bubble"></div>
+                </div>
+            </div>
+        </div>
+        <script>
+            function getOptions() {
+                // reference to the dropdown select tag
+                var selector = document.getElementById('selDataset');
+
+                // read in the data to populate the dropdown
+                Plotly.d3.json('/names', function(error, sampleNames){
+                    for (var i=0; i < sampleNames.length; i++) {
+                        var currentOption = document.createElement('option');
+                        currentOption.text = sampleNames[i];
+                        currentOption.value = sampleNames[i];
+                        selector.appendChild(currentOption);
+                    }
+                    // initializes our first chart
+                    getData(sampleNames[0], buildCharts);
+                })
+            }
+			
+					
+            function getData(sample, callback) {
+                Plotly.d3.json(`/samples/${sample}`, function(error, sampleData) {
+                    if (error) return console.warn(error);
+						console.log(sampleData);
+                    Plotly.d3.json('/otu', function(error, otuData){
+                        if (error) return console.warn(error);
+						console.log(otuData);
+                        callback(sampleData, otuData);
+                    })
+                })
+
+                Plotly.d3.json(`/metadata/${sample}`, function(error, metaData) {
+                    if (error) return console.warn(error);
+                    updateMetaData(metaData);
+                }) 
+            }
+
+            function buildCharts(sampleData, otuData) {
+                var labels = sampleData[0]["otu_ids"].map(function(item) {
+                    return otuData[item]
+                });
+
+                var trace1 = {
+                    x: sampleData[0]['otu_ids'],
+                    y: sampleData[0]['sample_values'],
+                    text: labels,
+                    mode: 'markers',
+                    marker: {
+                        size: sampleData[0]["sample_values"],
+                        color: sampleData[0]["otu_ids"],
+                        colorscale: "Earth"
+                    }
+                };
+
+                var data = [trace1];
+
+                var layout = {
+                    margin: {t: 0},
+                    hovermode: 'closest',
+                    xaxis: {title: "OTU ID"}
+                };
+
+                var BUBBLE = document.getElementById('bubble');
+
+                Plotly.plot(BUBBLE, data, layout);
+
+
+                var trace2 = {
+                    labels: sampleData[0]["otu_ids"].slice(0, 10),
+                    values: sampleData[0]["sample_values"].slice(0, 10),
+                    hovermode: "closest",
+                    textinfo: "percent",
+                    text: labels.slice(0, 10),
+                    type: 'pie'
+                }
+
+
+                var pieData = [trace2];
+
+                var pieLayout = {
+                    margin: {t: 0, l: 0},
+                    height: 400,
+                    width: 800,
+                }
+
+                var PIE = document.getElementById('pie');
+
+
+                Plotly.plot(PIE, pieData, pieLayout);
+            }
+
+            function optionsChanged(newSample) {
+                getData(newSample, updateCharts);
+            }
+
+            function updateCharts(sampleData, otuData) {
+
+                var sampleValues = sampleData[0]["sample_values"];
+                var otuIDs = sampleData[0]["otu_ids"];
+                var BUBBLE = document.getElementById('bubble');
+
+                var labels = otuIDs.map(function(item) {
+                    return otuData[item]
+                });
+
+                Plotly.restyle(BUBBLE, 'x', [otuIDs]);
+                Plotly.restyle(BUBBLE, 'y', [sampleValues]);
+                Plotly.restyle(BUBBLE, 'text', [labels]);
+                Plotly.restyle(BUBBLE, 'marker.size', [sampleValues]);
+                Plotly.restyle(BUBBLE, 'marker.color', [otuIDs]);
+
+                var PIE = document.getElementById("pie");
+
+                var pieUpdate = {
+                    values: [sampleValues.slice(0, 10)],
+                    labels: [otuIDs.slice(0, 10)],
+                    hovermode: "closest",
+                    textinfo: "percent",
+                    text: [labels.slice(0, 10)],
+                    type: "pie"
+                };
+                Plotly.restyle(PIE, pieUpdate);
+            }
+
+            // build the Metadata function and updateMetaData function
+            
+            function metaPanel(data) {
+                var PANEL = document.getElementById("metadata");
+                for(var key in data) {
+                    panelTag
+                }
+            }
+
+            function updateMetaData(data) {
+                var PANEL = document.getElementById("metadata");
+                PANEL.innerHTML = "";
+                for(var key in data) {
+                    panelTag = document.createElement("h6");
+                    panelText = document.createTextNode(`${key}: ${data[key]}`);
+                    panelTag.append(panelText);
+                    PANEL.appendChild(panelTag);       
+                }
+            }
+
+
+            function init() {
+                getOptions();
+            }
+
+            // initializes our functions
+            init();
+
+        </script>
+
+    </body>
+</html>
